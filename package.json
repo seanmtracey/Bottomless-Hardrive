@@ -1,0 +1,25 @@
+{
+  "name": "bottomless-hardrive",
+  "version": "1.0.0",
+  "description": "Who needs a hard drive when you have the cloud?",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seanmtracey/Bottomless-Hardrive.git"
+  },
+  "author": "Sean M. Tracey",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/seanmtracey/Bottomless-Hardrive/issues"
+  },
+  "homepage": "https://github.com/seanmtracey/Bottomless-Hardrive#readme",
+  "dependencies": {
+    "aws-sdk": "^2.224.1",
+    "dotenv": "^5.0.1",
+    "fuse-bindings": "^2.11.2"
+  }
+}
