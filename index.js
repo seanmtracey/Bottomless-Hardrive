@@ -9,6 +9,19 @@ const S3 = new AWS.S3({apiVersion: '2006-03-01'});
 
 const cache = {};
 
+function adjustPath(path){
+
+	if(path.startsWith('/')){
+		path = path.slice(1, path.length);
+		debug('adj', path);
+	}
+
+	return path;
+
+}
+
+// unmount();
+
 fuse.mount(mountPath, {
 	readdir: function (path, cb) {
 		console.log('readdir(%s)', path)
@@ -47,14 +60,24 @@ fuse.mount(mountPath, {
 	},
 	getattr: function (path, cb) {
 	  console.log('getattr(%s)', path)
-
+		
 	  S3.headObject({
 			Bucket: process.env.BUCKET_NAME,
-			Key : 'hello.jpg'
+			Key : adjustPath(path)
 		}, function(err, data) {
 			if (err){
 				debug(`getAttr headObject:`, err); // an error occurred
-				cb(fuse.ENOENT);
+				// cb(0, fuse.ENOENT);
+				cb(0, {
+					mtime: new Date(),
+					atime: new Date(),
+					ctime: new Date(),
+					nlink: 1,
+					size: 0,
+					mode: path.endsWith('/') ? 16877 : 33188,
+					uid: process.getuid ? process.getuid() : 0,
+					gid: process.getgid ? process.getgid() : 0
+				})
 			} else {
 				debug(`S3 Data (${path}):`, data);
 				cb(0, {
@@ -70,36 +93,6 @@ fuse.mount(mountPath, {
 			}
 		})
 		;
-		
-	//   if (path === '/' || path === '/hello.jpg') {
-	// 	cb(0, {
-	// 	  mtime: new Date(),
-	// 	  atime: new Date(),
-	// 	  ctime: new Date(),
-	// 	  nlink: 1,
-	// 	  size: 100,
-	// 	  mode: 16877,
-	// 	  uid: process.getuid ? process.getuid() : 0,
-	// 	  gid: process.getgid ? process.getgid() : 0
-	// 	})
-	// 	return
-	//   }
-  
-	//   if (path === '/hello.jpg') {
-	// 	cb(0, {
-	// 	  mtime: new Date(),
-	// 	  atime: new Date(),
-	// 	  ctime: new Date(),
-	// 	  nlink: 1,
-	// 	  size: 12,
-	// 	  mode: 33188,
-	// 	  uid: process.getuid ? process.getuid() : 0,
-	// 	  gid: process.getgid ? process.getgid() : 0
-	// 	})
-	// 	return
-	//   }
-  
-	//   cb(fuse.ENOENT)
 	},
 	open: function (path, flags, cb) {
 	  console.log('open(%s, %d)', path, flags)
@@ -112,11 +105,7 @@ fuse.mount(mountPath, {
 	//   buf.write(str)
 	//   return cb(str.length)
 
-		if(path.startsWith('/')){
-			path = path.slice(1, path.length);
-			debug('adj', path);
-			// process.exit();
-		}
+		path = adjustPath(path);
 		
 		var params = {
 			Bucket: process.env.BUCKET_NAME,
@@ -163,7 +152,40 @@ fuse.mount(mountPath, {
 
 		});
 
-	}
+	},
+	/*write : function(path, fd, buffer, length, position, cb){
+		
+		path = adjustPath(path);
+
+		if(position === 0){
+			cache[path] = Buffer.alloc(length);
+		}
+
+		for(var x = position; x < buffer.length; x ++){
+			cache[path][x] = buffer[x];
+		}
+
+		if(position >= length){
+
+			const params = {
+				Bucket : process.env.BUCKET_NAME,
+				Key : path,
+				Body: cache[path]
+			};
+	
+			S3.putObject(params, (err, data) => {
+	
+				if(err){
+					debug('PUTOBJECT ERR:', err);
+				}
+	
+				cb(length); // we handled all the data
+				
+			});
+
+		}
+
+	}*/
   }, function (err) {
 	if (err) {
 		debug(err);
