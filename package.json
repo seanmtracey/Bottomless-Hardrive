@@ -20,6 +20,7 @@
   "dependencies": {
     "aws-sdk": "^2.224.1",
     "dotenv": "^5.0.1",
-    "fuse-bindings": "^2.11.2"
+    "fuse-bindings": "^2.11.2",
+    "uuid": "^3.3.2"
   }
 }

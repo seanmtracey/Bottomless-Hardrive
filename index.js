@@ -1,13 +1,17 @@
 require('dotenv').config();
 const debug = require('debug')('index');
 const fuse = require('fuse-bindings');
+const fs = require('fs');
+const uuid = require('uuid/v4');
 const AWS = require('aws-sdk');
 
-const mountPath = `${__dirname}/mnt`;
+const mountPath = `${__dirname}/mnt-${uuid()}`;
 
 const S3 = new AWS.S3({apiVersion: '2006-03-01'});
 
 const cache = {};
+
+fs.mkdirSync(mountPath);
 
 function adjustPath(path){
 
@@ -28,10 +32,14 @@ fuse.mount(mountPath, {
 	//   if (path === '/') return cb(0, ['hello.jpg'])
 	//   cb(0)
 
+		const pathPrefix = path === '/' ? '' : path;
+
 		var params = {
 			Bucket: process.env.BUCKET_NAME,
-			Prefix : path === '/' ? '' : path
+			Prefix : pathPrefix
 		};
+		
+		console.log('readdir params:', params);
 
 		S3.listObjects(params, (err, data) => {
 			if (err) { 
@@ -41,11 +49,7 @@ fuse.mount(mountPath, {
 				debug(data);
 				const files = data.Contents.map(obj => { return `${obj.Key}` } );
 
-				debug('>>>>>>>>>>>>>> Files:', files);
-				debug('>>>>>>>>>>>>>> Files:', files);
-				debug('>>>>>>>>>>>>>> Files:', files);
-				debug('>>>>>>>>>>>>>> Files:', files);
-				debug('>>>>>>>>>>>>>> Files:', files);
+				debug('\n\n>>>>>>>>>>>>>> Files:', files, '\n\n');
 
 				if(files.length === 0){
 					cb(0);
@@ -107,53 +111,61 @@ fuse.mount(mountPath, {
 
 		path = adjustPath(path);
 		
+		console.log(path, `bytes=${position}-${position + length}`);
+
 		var params = {
 			Bucket: process.env.BUCKET_NAME,
 			Key: path,
-			// Range : `bytes=${position}-${position + length}`
+			Range : `bytes=${position}-${position + length}`
 		};
 		
 		S3.getObject(params, function(err, data) {
 
-			if(data !== null){
-				debug('dahta:', data);
-				// process.exit();
-			}
-
-
-			// var str = 'hello world\n'.slice(pos, pos + len)
-			
-			if(data){
-				if(data.Body){
-					
-					if(cache[path] === undefined){
-						cache[path] = data.Body;
-					}
-
-					debug('buf:', buffer);
-					console.log('read(%s, %d, %d, %d)', path, buffer, length, position)
-
-					// buf.write(data.Body.slice(pos, pos + len));
-					// return cb(data.Body.length);
-
-					if (position >= data.length){
-						delete cache[path];
-						return cb(0) // done
-					} else {
-						var part = cache[path].slice(position, position + length)
-						part.copy(buffer) // write the result of the read to the result buffer
-						cb(part.length)	
-					}
-
-				}
+			if(err){
+				console.log('read getObject err:', err);
+				cb(0);
 			} else {
-				return cb(0)
-			} 
+
+				if(data !== null){
+					debug('data:', data);
+				}
+	
+	
+				// var str = 'hello world\n'.slice(pos, pos + len)
+				
+				if(data){
+					if(data.Body){
+						
+						/*if(cache[path] === undefined){
+							cache[path] = data.Body;
+						}*/
+	
+						debug('buf:', buffer);
+						console.log('read(%s, %d, %d, %d)', path, buffer, length, position)
+	
+						buffer.copy(data.Body);
+						return cb(data.Body.length);
+	
+						/*if (position >= data.length){
+							delete cache[path];
+							return cb(0) // done
+						} else {
+							var part = cache[path].slice(position, position + length)
+							part.copy(buffer) // write the result of the read to the result buffer
+							cb(part.length)	
+						}*/
+	
+					}
+				} else {
+					return cb(0)
+				} 
+
+			}
 
 		});
 
 	},
-	/*write : function(path, fd, buffer, length, position, cb){
+	write : function(path, fd, buffer, length, position, cb){
 		
 		path = adjustPath(path);
 
@@ -185,16 +197,14 @@ fuse.mount(mountPath, {
 
 		}
 
-	}*/
+	}
   }, function (err) {
 	if (err) {
 		debug(err);
 		unmount();
 	}
 	console.log('filesystem mounted on ' + mountPath)
-  })
-
-
+  });
 
 function unmount(exit = true){
 	fuse.unmount(mountPath, function (err) {
@@ -214,6 +224,6 @@ process.on('SIGINT', function(err){
 });
 
 process.on('uncaughtException', function(err){
-	debug('err:', err);
+	debug('Top level Error:', err);
 	unmount();
 });
